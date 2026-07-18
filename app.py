@@ -20,36 +20,57 @@ THRESHOLD = 0.5
 FILE_ID = "1aN7_TYwhbL0GUYmiD591T1BE2bDNyfjD"
 MODEL_PATH = "best_weights.weights.h5"
 
+# Hide TensorFlow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 app = Flask(__name__)
-detector = MTCNN()
 
 # =========================
-# DOWNLOAD MODEL (FROM DRIVE)
+# DOWNLOAD MODEL (SAFE)
 # =========================
-if not os.path.exists(MODEL_PATH):
-    print("⬇️ Downloading model from Google Drive...")
-    url = f"https://drive.google.com/uc?id={FILE_ID}"
-    gdown.download(url, MODEL_PATH, quiet=False)
-    print("✅ Model downloaded")
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        print("⬇️ Downloading model from Google Drive...")
+        url = f"https://drive.google.com/uc?id={FILE_ID}"
+        gdown.download(url, MODEL_PATH, quiet=False)
+        print("✅ Model downloaded")
+
+# =========================
+# FACE DETECTOR (LAZY LOAD)
+# =========================
+detector = None
+
+def get_detector():
+    global detector
+    if detector is None:
+        print("🔄 Loading MTCNN...")
+        detector = MTCNN()
+    return detector
 
 # =========================
 # FACE EXTRACT
 # =========================
 def extract_face(image):
-    img = np.array(image)
-    results = detector.detect_faces(img)
+    try:
+        img = np.array(image)
+        detector = get_detector()
+        results = detector.detect_faces(img)
 
-    if len(results) == 0:
+        if len(results) == 0:
+            return image
+
+        x, y, w, h = results[0]['box']
+        x, y = abs(x), abs(y)
+
+        face = img[y:y+h, x:x+w]
+        return Image.fromarray(face)
+
+    except Exception as e:
+        print("Face extraction error:", e)
         return image
 
-    x, y, w, h = results[0]['box']
-    x, y = abs(x), abs(y)
-
-    face = img[y:y+h, x:x+w]
-    return Image.fromarray(face)
-
 # =========================
-# MODEL BUILD (SAME AS TRAINING)
+# MODEL BUILD
 # =========================
 def build_model():
     base_model = EfficientNetB0(
@@ -74,11 +95,19 @@ def build_model():
     return model
 
 # =========================
-# LOAD MODEL WEIGHTS
+# LOAD MODEL (SAFE)
 # =========================
-model = build_model()
-model.load_weights(MODEL_PATH)
-print("✅ Model Loaded Successfully")
+model = None
+
+def load_model():
+    global model
+    if model is None:
+        print("🔄 Loading model...")
+        download_model()
+        model = build_model()
+        model.load_weights(MODEL_PATH)
+        print("✅ Model Loaded Successfully")
+    return model
 
 # =========================
 # PREPROCESS
@@ -101,7 +130,7 @@ def preprocess_image(image):
 # =========================
 @app.route("/")
 def home():
-    return "API Running ✅"
+    return "✅ API Running"
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -117,10 +146,11 @@ def predict():
         image = Image.open(file.stream)
         processed = preprocess_image(image)
 
+        model = load_model()
         prediction = model.predict(processed)[0][0]
 
-        # ✅ LABEL FIX
-        label = "Non_Autistic" if prediction > THRESHOLD else "Autistic"
+        # FIXED LABEL LOGIC (important!)
+        label = "Autistic" if prediction > THRESHOLD else "Non_Autistic"
 
         return jsonify({
             "prediction": label,
@@ -131,8 +161,8 @@ def predict():
         return jsonify({"error": str(e)})
 
 # =========================
-# RUN (FOR RENDER)
+# MAIN
 # =========================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
