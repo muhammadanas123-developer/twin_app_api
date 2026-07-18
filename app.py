@@ -3,15 +3,34 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageOps
 from mtcnn import MTCNN
-from tensorflow.keras.models import load_model
-from face_utils import extract_face
+import os
+import gdown
 
+from tensorflow.keras.applications import EfficientNetB0
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization
+from tensorflow.keras.models import Model
+from tensorflow.keras.applications.efficientnet import preprocess_input
+
+# =========================
+# CONFIG
+# =========================
 IMG_SIZE = 224
 THRESHOLD = 0.5
 
-app = Flask(__name__)
+FILE_ID = "1aN7_TYwhbL0GUYmiD591T1BE2bDNyfjD"
+MODEL_PATH = "best_weights.weights.h5"
 
+app = Flask(__name__)
 detector = MTCNN()
+
+# =========================
+# DOWNLOAD MODEL (FROM DRIVE)
+# =========================
+if not os.path.exists(MODEL_PATH):
+    print("⬇️ Downloading model from Google Drive...")
+    url = f"https://drive.google.com/uc?id={FILE_ID}"
+    gdown.download(url, MODEL_PATH, quiet=False)
+    print("✅ Model downloaded")
 
 # =========================
 # FACE EXTRACT
@@ -30,13 +49,8 @@ def extract_face(image):
     return Image.fromarray(face)
 
 # =========================
-# MODEL BUILD
+# MODEL BUILD (SAME AS TRAINING)
 # =========================
-from tensorflow.keras.applications import EfficientNetB0
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization
-from tensorflow.keras.models import Model
-from tensorflow.keras.applications.efficientnet import preprocess_input
-
 def build_model():
     base_model = EfficientNetB0(
         weights=None,
@@ -60,10 +74,11 @@ def build_model():
     return model
 
 # =========================
-# LOAD MODEL
+# LOAD MODEL WEIGHTS
 # =========================
-model = load_model("autism_model.keras")
-print("✅ Model Loaded")
+model = build_model()
+model.load_weights(MODEL_PATH)
+print("✅ Model Loaded Successfully")
 
 # =========================
 # PREPROCESS
@@ -104,7 +119,7 @@ def predict():
 
         prediction = model.predict(processed)[0][0]
 
-        # ✅ FIXED LABEL
+        # ✅ LABEL FIX
         label = "Non_Autistic" if prediction > THRESHOLD else "Autistic"
 
         return jsonify({
@@ -116,7 +131,8 @@ def predict():
         return jsonify({"error": str(e)})
 
 # =========================
-# RUN
+# RUN (FOR RENDER)
 # =========================
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
