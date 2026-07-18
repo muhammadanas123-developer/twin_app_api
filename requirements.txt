@@ -1,6 +1,9 @@
-tensorflow
 flask
-numpy
-pillow
 gunicorn
-scipy
+tensorflow==2.10.0
+keras==2.10.0
+numpy==1.23.5
+Pillow
+mtcnn
+scipy==1.10.1
+gdown
