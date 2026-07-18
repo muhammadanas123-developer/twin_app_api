@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image, ImageOps
 from mtcnn import MTCNN
 from tensorflow.keras.models import load_model
+from face_utils import extract_face
 
 IMG_SIZE = 224
 THRESHOLD = 0.5
