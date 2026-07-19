@@ -3,6 +3,8 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageOps
 import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 import gdown
 
 # ================= CONFIG =================
