@@ -8,27 +8,26 @@ import gdown
 # ================= CONFIG =================
 IMG_SIZE = 224
 THRESHOLD = 0.5
-
 MODEL_PATH = "autism_model.h5"
 
-# ✅ TUMHARA FILE ID (SET KAR DIYA)
+# ✅ YOUR GOOGLE DRIVE FILE ID
 FILE_ID = "1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 
 app = Flask(__name__)
 
 # ================= DOWNLOAD MODEL =================
 if not os.path.exists(MODEL_PATH):
-    print("⬇️ Downloading model...")
+    print("⬇️ Downloading model from Google Drive...")
     url = f"https://drive.google.com/uc?id={FILE_ID}"
     gdown.download(url, MODEL_PATH, quiet=False)
-    print("✅ Download complete!")
+    print("✅ Model downloaded!")
 
 # ================= LOAD MODEL =================
 print("📦 Loading model...")
 model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 print("✅ Model loaded!")
 
-# ✅ SAME PREPROCESS AS TRAINING
+# ✅ SAME AS TRAINING
 from tensorflow.keras.applications.efficientnet import preprocess_input
 
 # ================= PREPROCESS =================
@@ -39,7 +38,7 @@ def preprocess_image(image):
 
     img_array = np.array(image)
 
-    # 🔥 MOST IMPORTANT LINE
+    # 🔥 IMPORTANT (same as training)
     img_array = preprocess_input(img_array)
 
     img_array = np.expand_dims(img_array, axis=0)
@@ -47,6 +46,7 @@ def preprocess_image(image):
     return img_array
 
 # ================= ROUTES =================
+
 @app.route("/")
 def home():
     return jsonify({
@@ -54,23 +54,31 @@ def home():
         "message": "Autism Detection API"
     })
 
-@app.route("/predict", methods=["POST"])
+# ✅ FIXED ROUTE (GET + POST)
+@app.route("/predict", methods=["GET", "POST"])
 def predict():
+
+    # 👉 Browser access fix (no more 405 error)
+    if request.method == "GET":
+        return jsonify({"message": "Use POST with image file"})
+
     try:
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
+
         image = Image.open(file.stream)
 
         processed = preprocess_image(image)
 
         prediction = model.predict(processed)
+
         confidence = float(prediction[0][0])
 
         label = "Autistic" if confidence > THRESHOLD else "Non_Autistic"
 
-        print("CONFIDENCE:", confidence)
+        print("✅ Prediction:", label, "| Confidence:", confidence)
 
         return jsonify({
             "prediction": label,
@@ -78,7 +86,7 @@ def predict():
         })
 
     except Exception as e:
-        print("ERROR:", e)
+        print("❌ ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
 # ================= RUN =================
