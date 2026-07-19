@@ -6,17 +6,12 @@ from mtcnn import MTCNN
 import os
 import gdown
 
-from tensorflow.keras.applications import EfficientNetB0
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization
-from tensorflow.keras.models import Model
-from tensorflow.keras.applications.efficientnet import preprocess_input
-
 IMG_SIZE = 224
 THRESHOLD = 0.5
 
-# ✅ YOUR FILE ID
-FILE_ID = "1aN7_TYwhbL0GUYmiD591T1BE2bDNyfjD"
-MODEL_PATH = "best_weights.weights.h5"
+# ✅ GOOGLE DRIVE FILE ID (your link)
+FILE_ID = "1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
+MODEL_PATH = "autism_model.h5"
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -26,7 +21,7 @@ app = Flask(__name__)
 def download_model():
     if not os.path.exists(MODEL_PATH):
         print("Downloading model from Google Drive...")
-        url = f"https://drive.google.com/uc?id={FILE_ID}"
+        url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
         gdown.download(url, MODEL_PATH, quiet=False)
         print("Download complete!")
 
@@ -66,31 +61,15 @@ def load_model():
     if model is None:
         download_model()
 
-        base_model = EfficientNetB0(
-            weights=None,
-            include_top=False,
-            input_shape=(IMG_SIZE, IMG_SIZE, 3)
-        )
-
-        x = base_model.output
-        x = GlobalAveragePooling2D()(x)
-        x = BatchNormalization()(x)
-        x = Dense(256, activation='relu')(x)
-        x = Dropout(0.4)(x)
-        x = Dense(128, activation='relu')(x)
-        x = Dropout(0.3)(x)
-
-        output = Dense(1, activation='sigmoid')(x)
-
-        model = Model(inputs=base_model.input, outputs=output)
-
-        print("Loading weights...")
-        model.load_weights(MODEL_PATH)
-        print("Model loaded!")
+        print("Loading full model...")
+        model = tf.keras.models.load_model(MODEL_PATH)
+        print("Model loaded successfully!")
 
     return model
 
 # ================= PREPROCESS =================
+from tensorflow.keras.applications.efficientnet import preprocess_input
+
 def preprocess_image(image):
     image = ImageOps.exif_transpose(image)
 
