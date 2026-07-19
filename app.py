@@ -28,7 +28,7 @@ def load_model():
         if not os.path.exists(MODEL_PATH):
             print("📥 Downloading model...")
             url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
-           gdown.download(url, MODEL_PATH, quiet=False)
+            gdown.download(url, MODEL_PATH, quiet=False)
             print("✅ Download complete!")
 
         print("📦 Loading model...")
@@ -68,14 +68,15 @@ def home():
         "message": "Autism Detection API"
     })
 
-# 🔥 TEMP DEBUG (GET + POST both)
 @app.route("/predict", methods=["GET", "POST"])
 def predict():
     try:
 
+        # For browser testing
         if request.method == "GET":
             return jsonify({"message": "Use POST with image file"})
 
+        # Check file
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
 
@@ -87,7 +88,6 @@ def predict():
         model = load_model()
 
         prediction = model.predict(processed)[0][0]
-
         confidence = float(prediction)
 
         label = "Autistic" if confidence > THRESHOLD else "Non_Autistic"
