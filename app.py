@@ -2,6 +2,7 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify
 from tensorflow.keras.models import load_model
+from tensorflow.keras.applications.efficientnet import preprocess_input
 from PIL import Image
 import gdown
 
@@ -13,7 +14,7 @@ MODEL_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 model = None
 
 
-# ✅ DOWNLOAD MODEL
+# ✅ LOAD MODEL
 def load_my_model():
     global model
 
@@ -24,17 +25,20 @@ def load_my_model():
 
     if model is None:
         print("📦 Loading model...")
-        model = load_model(MODEL_PATH)
+        
+        # 🔥 FIX HERE
+        model = load_model(MODEL_PATH, compile=False)
+        
         print("✅ Model loaded!")
 
 
-# ✅ HOME ROUTE
+# ✅ HOME
 @app.route("/")
 def home():
     return "API is running"
 
 
-# ✅ PREDICT ROUTE
+# ✅ PREDICT
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
@@ -47,19 +51,20 @@ def predict():
 
         file = request.files["file"]
 
-        # ✅ PROCESS IMAGE
+        # ✅ IMAGE PROCESSING (IMPORTANT FIX)
         img = Image.open(file).convert("RGB")
         img = img.resize((224, 224))
 
-        img_array = np.array(img) / 255.0
+        img_array = np.array(img)
+        img_array = preprocess_input(img_array)   # 🔥 IMPORTANT
         img_array = np.expand_dims(img_array, axis=0)
 
-        # ✅ MODEL PREDICTION
+        # ✅ PREDICT
         pred = model.predict(img_array)[0][0]
 
-        print("🧠 RAW PREDICTION:", pred)
+        print("🧠 RAW PRED:", pred)
 
-        # ✅ FIX LOGIC (IMPORTANT)
+        # ✅ LABEL FIX
         if pred >= 0.5:
             label = "Autistic"
             confidence = float(pred)
@@ -73,9 +78,9 @@ def predict():
         })
 
     except Exception as e:
+        print("❌ ERROR:", e)
         return jsonify({"error": str(e)})
 
 
-# ✅ RUN
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
