@@ -10,32 +10,41 @@ app = Flask(__name__)
 MODEL_PATH = "autism_model.h5"
 MODEL_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 
-# ✅ Download model
-if not os.path.exists(MODEL_PATH):
-    print("⬇️ Downloading model...")
-    gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
-    print("✅ Model downloaded!")
+model = None  # ✅ global
 
-# ✅ LOAD MODEL (FIXED)
-print("📦 Loading model...")
-model = load_model(MODEL_PATH, compile=False)
-print("✅ Model loaded!")
+def load_my_model():
+    global model
+
+    if model is not None:
+        return model
+
+    if not os.path.exists(MODEL_PATH):
+        print("⬇️ Downloading model...")
+        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+        print("✅ Model downloaded!")
+
+    print("📦 Loading model...")
+    model = load_model(MODEL_PATH, compile=False)
+    print("✅ Model loaded!")
+
+    return model
+
 
 @app.route("/")
 def home():
     return "API is running"
 
-@app.route("/predict", methods=["GET", "POST"])
+
+@app.route("/predict", methods=["POST"])
 def predict():
     print("🔥 PREDICT API HIT")
-
-    if request.method == "GET":
-        return jsonify({"message": "Use POST with image file"})
 
     if 'file' not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
     try:
+        model = load_my_model()  # ✅ load once
+
         file = request.files['file']
 
         image = Image.open(file).convert("RGB")
