@@ -10,42 +10,32 @@ app = Flask(__name__)
 MODEL_PATH = "autism_model.h5"
 DRIVE_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 
-# ✅ Download model if not exists
+# Download model
 if not os.path.exists(MODEL_PATH):
     print("⬇️ Downloading model...")
     gdown.download(DRIVE_URL, MODEL_PATH, quiet=False)
     print("✅ Model downloaded!")
 
-# ✅ Load model (FIXED - no crash)
+# Load model
 print("📦 Loading model...")
-try:
-    model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-except Exception as e:
-    print("⚠️ Normal load failed, trying safe mode...")
-    model = tf.keras.models.load_model(MODEL_PATH, compile=False, safe_mode=False)
-
+model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 print("✅ Model loaded!")
 
-# ✅ Preprocessing (VERY IMPORTANT)
 def preprocess_image(image):
-    image = image.resize((224, 224))   # same as training
+    image = image.resize((224, 224))
     image = np.array(image) / 255.0
     image = np.expand_dims(image, axis=0)
     return image
 
-# ✅ Home route
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({
-        "message": "Autism Detection API",
-        "status": "API Running"
-    })
+    return jsonify({"message": "API Running"})
 
-# ✅ Predict route
 @app.route("/predict", methods=["GET", "POST"])
 def predict():
 
-    # 👉 Browser test
+    print("🔥 PREDICT API HIT")
+
     if request.method == "GET":
         return jsonify({"message": "Use POST with image file"})
 
@@ -54,16 +44,14 @@ def predict():
             return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
-
-        # Load image
         image = Image.open(file).convert("RGB")
 
-        # Preprocess
         processed = preprocess_image(image)
 
-        # Prediction
         prediction = model.predict(processed)[0][0]
         confidence = float(prediction * 100)
+
+        print(f"Prediction: {prediction}, Confidence: {confidence}")
 
         return jsonify({
             "prediction": "Autistic" if prediction > 0.5 else "Non-Autistic",
@@ -71,9 +59,8 @@ def predict():
         })
 
     except Exception as e:
+        print("ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
-
-# ✅ Render run
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
