@@ -6,6 +6,7 @@ import os
 import gdown
 
 # ================= CONFIG =================
+
 IMG_SIZE = 224
 THRESHOLD = 0.5
 
@@ -14,85 +15,177 @@ MODEL_PATH = "autism_model.h5"
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+
 app = Flask(__name__)
 
+
 # ================= DOWNLOAD MODEL =================
+
 def download_model():
     if not os.path.exists(MODEL_PATH):
         print("📥 Downloading model...")
+
         url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
-        gdown.download(url, MODEL_PATH, quiet=False)
+
+        gdown.download(
+            url,
+            MODEL_PATH,
+            quiet=False
+        )
+
         print("✅ Download complete!")
 
+
 # ================= LOAD MODEL =================
+
 print("📦 Loading model at startup...")
 
 download_model()
 
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+model = tf.keras.models.load_model(
+    MODEL_PATH,
+    compile=False
+)
 
 print("✅ Model loaded successfully!")
 
+
 # ================= PREPROCESS =================
+
 from tensorflow.keras.applications.efficientnet import preprocess_input
 
+
 def preprocess_image(image):
+
     image = ImageOps.exif_transpose(image)
+
     image = image.convert("RGB")
-    image = image.resize((IMG_SIZE, IMG_SIZE))
+
+    image = image.resize(
+        (IMG_SIZE, IMG_SIZE)
+    )
+
 
     img_array = np.array(image)
+
 
     if img_array is None or img_array.size == 0:
         raise ValueError("Invalid image")
 
+
     img_array = preprocess_input(img_array)
-    img_array = np.expand_dims(img_array, axis=0)
+
+    img_array = np.expand_dims(
+        img_array,
+        axis=0
+    )
+
 
     return img_array
 
+
+
 # ================= ROUTES =================
+
 
 @app.route("/")
 def home():
+
     return jsonify({
+
         "status": "API Running",
+
         "message": "Autism Detection API"
+
     })
 
-# 🔥 HEALTH CHECK (cron ke liye)
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok"})
 
-# 🔥 MAIN API
+
+# ================= PREDICTION API =================
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
+
     try:
+
         if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
+
+            return jsonify({
+
+                "error": "No file uploaded"
+
+            }), 400
+
+
 
         file = request.files["file"]
-        image = Image.open(file.stream)
 
-        processed = preprocess_image(image)
 
-        prediction = model.predict(processed)
+        image = Image.open(
+            file.stream
+        )
 
-        confidence = float(prediction[0][0])
 
-        label = "Autistic" if confidence > THRESHOLD else "Non_Autistic"
+        processed = preprocess_image(
+            image
+        )
+
+
+        prediction = model.predict(
+            processed
+        )
+
+
+        confidence = float(
+            prediction[0][0]
+        )
+
+
+        label = (
+            "Autistic"
+            if confidence > THRESHOLD
+            else "Non_Autistic"
+        )
+
 
         return jsonify({
+
             "prediction": label,
+
             "confidence": confidence
+
         }), 200
 
+
+
     except Exception as e:
+
         print("❌ ERROR:", e)
-        return jsonify({"error": str(e)}), 500
+
+
+        return jsonify({
+
+            "error": str(e)
+
+        }), 500
+
+
 
 # ================= RUN =================
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+
+    port = int(
+        os.environ.get(
+            "PORT",
+            10000
+        )
+    )
+
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
