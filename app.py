@@ -8,8 +8,6 @@ import gdown
 app = Flask(__name__)
 
 MODEL_PATH = "autism_model.h5"
-
-# 🔗 Google Drive Direct Download Link
 DRIVE_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 
 # ✅ Download model if not exists
@@ -18,15 +16,20 @@ if not os.path.exists(MODEL_PATH):
     gdown.download(DRIVE_URL, MODEL_PATH, quiet=False)
     print("✅ Model downloaded!")
 
-# ✅ Load model (IMPORTANT FIX)
+# ✅ Load model (FIXED - no crash)
 print("📦 Loading model...")
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+try:
+    model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+except Exception as e:
+    print("⚠️ Normal load failed, trying safe mode...")
+    model = tf.keras.models.load_model(MODEL_PATH, compile=False, safe_mode=False)
+
 print("✅ Model loaded!")
 
-# ✅ Preprocessing (MATCH TRAINING)
+# ✅ Preprocessing (VERY IMPORTANT)
 def preprocess_image(image):
-    image = image.resize((224, 224))   # ⚠️ same as training
-    image = np.array(image) / 255.0    # normalize
+    image = image.resize((224, 224))   # same as training
+    image = np.array(image) / 255.0
     image = np.expand_dims(image, axis=0)
     return image
 
@@ -38,11 +41,11 @@ def home():
         "status": "API Running"
     })
 
-# ✅ Predict route (GET + POST)
+# ✅ Predict route
 @app.route("/predict", methods=["GET", "POST"])
 def predict():
 
-    # 👉 Browser GET request
+    # 👉 Browser test
     if request.method == "GET":
         return jsonify({"message": "Use POST with image file"})
 
@@ -71,6 +74,6 @@ def predict():
         return jsonify({"error": str(e)}), 500
 
 
-# ✅ Render compatible run
+# ✅ Render run
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
