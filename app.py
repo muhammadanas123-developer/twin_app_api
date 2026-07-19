@@ -1,66 +1,67 @@
 import os
 import numpy as np
-import tensorflow as tf
 from flask import Flask, request, jsonify
+from tensorflow.keras.models import load_model
 from PIL import Image
 import gdown
 
 app = Flask(__name__)
 
 MODEL_PATH = "autism_model.h5"
-DRIVE_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
+MODEL_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 
-# Download model
+# ✅ Download model if not exists
 if not os.path.exists(MODEL_PATH):
     print("⬇️ Downloading model...")
-    gdown.download(DRIVE_URL, MODEL_PATH, quiet=False)
+    gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
     print("✅ Model downloaded!")
 
-# Load model
+# ✅ Load model
 print("📦 Loading model...")
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+model = load_model(MODEL_PATH)
 print("✅ Model loaded!")
 
-def preprocess_image(image):
-    image = image.resize((224, 224))
-    image = np.array(image) / 255.0
-    image = np.expand_dims(image, axis=0)
-    return image
-
-@app.route("/", methods=["GET"])
+# ✅ Home route
+@app.route("/")
 def home():
-    return jsonify({"message": "API Running"})
+    return "API is running"
 
+# ✅ Predict route (IMPORTANT FIX)
 @app.route("/predict", methods=["GET", "POST"])
 def predict():
-
     print("🔥 PREDICT API HIT")
 
     if request.method == "GET":
-        return jsonify({"message": "Use POST with image file"})
+        return jsonify({
+            "message": "Use POST with image file"
+        })
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
+        file = request.files['file']
 
-        file = request.files["file"]
         image = Image.open(file).convert("RGB")
+        image = image.resize((224, 224))
 
-        processed = preprocess_image(image)
+        img_array = np.array(image) / 255.0
+        img_array = np.expand_dims(img_array, axis=0)
 
-        prediction = model.predict(processed)[0][0]
-        confidence = float(prediction * 100)
+        prediction = model.predict(img_array)[0][0]
 
-        print(f"Prediction: {prediction}, Confidence: {confidence}")
+        label = "Autistic" if prediction > 0.5 else "Non-Autistic"
+        confidence = float(prediction if prediction > 0.5 else 1 - prediction)
 
         return jsonify({
-            "prediction": "Autistic" if prediction > 0.5 else "Non-Autistic",
-            "confidence": round(confidence, 2)
+            "prediction": label,
+            "confidence": confidence
         })
 
     except Exception as e:
-        print("ERROR:", e)
+        print("❌ ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
+# ✅ Run
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
