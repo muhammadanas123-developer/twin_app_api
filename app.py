@@ -4,13 +4,14 @@ import numpy as np
 from PIL import Image, ImageOps
 from mtcnn import MTCNN
 import os
-import gdown
+import requests
 
 from tensorflow.keras.applications import EfficientNetB0
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications.efficientnet import preprocess_input
 
+# ================= CONFIG =================
 IMG_SIZE = 224
 THRESHOLD = 0.5
 
@@ -21,11 +22,18 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 app = Flask(__name__)
 
-# ================= DOWNLOAD MODEL =================
+# ================= DOWNLOAD MODEL (FIXED) =================
 def download_model():
     if not os.path.exists(MODEL_PATH):
-        url = f"https://drive.google.com/uc?id={FILE_ID}"
-        gdown.download(url, MODEL_PATH, quiet=False)
+        print("⬇️ Downloading model...")
+
+        url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
+        response = requests.get(url)
+
+        with open(MODEL_PATH, "wb") as f:
+            f.write(response.content)
+
+        print("✅ Model Downloaded")
 
 # ================= FACE DETECTOR =================
 detector = None
@@ -33,6 +41,7 @@ detector = None
 def get_detector():
     global detector
     if detector is None:
+        print("🔄 Loading MTCNN...")
         detector = MTCNN()
     return detector
 
@@ -51,7 +60,8 @@ def extract_face(image):
         face = img[y:y+h, x:x+w]
         return Image.fromarray(face)
 
-    except:
+    except Exception as e:
+        print("Face error:", e)
         return image
 
 # ================= MODEL =================
@@ -60,6 +70,8 @@ model = None
 def load_model():
     global model
     if model is None:
+        print("🔄 Loading model...")
+
         download_model()
 
         base_model = EfficientNetB0(
@@ -80,6 +92,8 @@ def load_model():
 
         model = Model(inputs=base_model.input, outputs=output)
         model.load_weights(MODEL_PATH)
+
+        print("✅ Model Loaded")
 
     return model
 
@@ -121,11 +135,12 @@ def predict():
         label = "Autistic" if prediction > THRESHOLD else "Non_Autistic"
 
         return jsonify({
-            "prediction": str(label),
+            "prediction": label,
             "confidence": float(prediction)
         })
 
     except Exception as e:
+        print("ERROR:", str(e))
         return jsonify({
             "error": str(e)
         })
