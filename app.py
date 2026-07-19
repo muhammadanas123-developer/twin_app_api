@@ -6,10 +6,10 @@ from mtcnn import MTCNN
 import os
 import gdown
 
+# ================= CONFIG =================
 IMG_SIZE = 224
 THRESHOLD = 0.5
 
-# ✅ GOOGLE DRIVE FILE ID (your link)
 FILE_ID = "1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 MODEL_PATH = "autism_model.h5"
 
@@ -20,10 +20,10 @@ app = Flask(__name__)
 # ================= DOWNLOAD MODEL =================
 def download_model():
     if not os.path.exists(MODEL_PATH):
-        print("Downloading model from Google Drive...")
+        print("📥 Downloading model...")
         url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
         gdown.download(url, MODEL_PATH, quiet=False)
-        print("Download complete!")
+        print("✅ Download complete!")
 
 # ================= FACE DETECTOR =================
 detector = None
@@ -50,7 +50,7 @@ def extract_face(image):
         return Image.fromarray(face)
 
     except Exception as e:
-        print("Face detection error:", e)
+        print("⚠ Face detection error:", e)
         return image
 
 # ================= MODEL =================
@@ -61,9 +61,17 @@ def load_model():
     if model is None:
         download_model()
 
-        print("Loading full model...")
-        model = tf.keras.models.load_model(MODEL_PATH)
-        print("Model loaded successfully!")
+        print("📦 Loading model...")
+        model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+
+        # Optional compile (safe)
+        model.compile(
+            optimizer="adam",
+            loss="binary_crossentropy",
+            metrics=["accuracy"]
+        )
+
+        print("✅ Model loaded!")
 
     return model
 
@@ -78,6 +86,11 @@ def preprocess_image(image):
     face = face.resize((IMG_SIZE, IMG_SIZE))
 
     img_array = np.array(face)
+
+    # Safety check
+    if img_array is None or img_array.size == 0:
+        raise ValueError("Invalid image after preprocessing")
+
     img_array = preprocess_input(img_array)
     img_array = np.expand_dims(img_array, axis=0)
 
@@ -86,7 +99,7 @@ def preprocess_image(image):
 # ================= ROUTES =================
 @app.route("/")
 def home():
-    return "API Running Successfully 🚀"
+    return "✅ API Running Successfully 🚀"
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -101,17 +114,22 @@ def predict():
 
         model = load_model()
 
-        prediction = model.predict(processed)[0][0]
+        prediction = model.predict(processed)
 
-        label = "Autistic" if prediction > THRESHOLD else "Non_Autistic"
+        if prediction is None:
+            return jsonify({"error": "Prediction failed"})
+
+        confidence = float(prediction[0][0])
+
+        label = "Autistic" if confidence > THRESHOLD else "Non_Autistic"
 
         return jsonify({
             "prediction": label,
-            "confidence": float(prediction)
+            "confidence": round(confidence * 100, 2)  # percentage
         })
 
     except Exception as e:
-        print("ERROR:", e)
+        print("❌ ERROR:", e)
         return jsonify({"error": str(e)})
 
 # ================= RUN =================
