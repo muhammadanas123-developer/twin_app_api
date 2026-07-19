@@ -3,36 +3,20 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageOps
 import os
-import gc
-import gdown
 
 # ================= CONFIG =================
 IMG_SIZE = 224
 THRESHOLD = 0.5
-
-FILE_ID = "1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 MODEL_PATH = "autism_model.h5"
 
 app = Flask(__name__)
 
-# ================= DOWNLOAD MODEL =================
-def download_model():
-    if not os.path.exists(MODEL_PATH):
-        print("📥 Downloading model...")
-        url = f"https://drive.google.com/uc?id={FILE_ID}"
-        gdown.download(url, MODEL_PATH, quiet=False)
-        print("✅ Download complete!")
-
 # ================= LOAD MODEL =================
 print("📦 Loading model...")
-download_model()
-
 model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 print("✅ Model loaded!")
 
-gc.collect()
-
-# ✅ IMPORTANT: SAME AS TRAINING
+# ✅ SAME AS TRAINING
 from tensorflow.keras.applications.efficientnet import preprocess_input
 
 # ================= PREPROCESS =================
@@ -42,9 +26,9 @@ def preprocess_image(image):
     image = image.convert("RGB")
     image = image.resize((IMG_SIZE, IMG_SIZE))
 
-    img_array = np.array(image).astype(np.float32)
+    img_array = np.array(image)
 
-    # 🔥 EXACT SAME AS TRAINING
+    # 🔥 IMPORTANT FIX (MOST CRITICAL)
     img_array = preprocess_input(img_array)
 
     img_array = np.expand_dims(img_array, axis=0)
@@ -77,7 +61,7 @@ def predict():
 
         label = "Autistic" if confidence > THRESHOLD else "Non_Autistic"
 
-        print("DEBUG →", confidence)
+        print("DEBUG CONFIDENCE:", confidence)
 
         return jsonify({
             "prediction": label,
