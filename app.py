@@ -8,6 +8,8 @@ import gdown
 app = Flask(__name__)
 
 MODEL_PATH = "autism_model.h5"
+
+# 🔗 Google Drive Direct Download Link
 DRIVE_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 
 # ✅ Download model if not exists
@@ -16,15 +18,15 @@ if not os.path.exists(MODEL_PATH):
     gdown.download(DRIVE_URL, MODEL_PATH, quiet=False)
     print("✅ Model downloaded!")
 
-# ✅ Load model only ONCE
+# ✅ Load model (IMPORTANT FIX)
 print("📦 Loading model...")
-model = tf.keras.models.load_model(MODEL_PATH)
+model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 print("✅ Model loaded!")
 
-# ✅ Preprocess function (IMPORTANT for matching result)
+# ✅ Preprocessing (MATCH TRAINING)
 def preprocess_image(image):
-    image = image.resize((224, 224))   # ⚠️ SAME SIZE AS TRAINING
-    image = np.array(image) / 255.0    # ⚠️ NORMALIZATION
+    image = image.resize((224, 224))   # ⚠️ same as training
+    image = np.array(image) / 255.0    # normalize
     image = np.expand_dims(image, axis=0)
     return image
 
@@ -39,7 +41,8 @@ def home():
 # ✅ Predict route (GET + POST)
 @app.route("/predict", methods=["GET", "POST"])
 def predict():
-    # 👉 Browser open kare to ye message aaye
+
+    # 👉 Browser GET request
     if request.method == "GET":
         return jsonify({"message": "Use POST with image file"})
 
@@ -49,21 +52,25 @@ def predict():
 
         file = request.files["file"]
 
+        # Load image
         image = Image.open(file).convert("RGB")
+
+        # Preprocess
         processed = preprocess_image(image)
 
+        # Prediction
         prediction = model.predict(processed)[0][0]
-        percentage = float(prediction * 100)
+        confidence = float(prediction * 100)
 
         return jsonify({
             "prediction": "Autistic" if prediction > 0.5 else "Non-Autistic",
-            "confidence": round(percentage, 2)
+            "confidence": round(confidence, 2)
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# ✅ IMPORTANT for Render (avoid crash)
+# ✅ Render compatible run
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
