@@ -24,18 +24,12 @@ def download_model():
         gdown.download(url, MODEL_PATH, quiet=False)
         print("✅ Download complete!")
 
-# ================= LOAD MODEL ON START =================
+# ================= LOAD MODEL (GLOBAL) =================
 print("📦 Loading model at startup...")
 
 download_model()
 
 model = tf.keras.models.load_model(MODEL_PATH, compile=False)
-
-model.compile(
-    optimizer="adam",
-    loss="binary_crossentropy",
-    metrics=["accuracy"]
-)
 
 print("✅ Model loaded successfully!")
 
@@ -44,8 +38,6 @@ from tensorflow.keras.applications.efficientnet import preprocess_input
 
 def preprocess_image(image):
     image = ImageOps.exif_transpose(image)
-
-    # ❌ FACE DETECTION REMOVE (RAM SAVE)
     image = image.convert("RGB")
     image = image.resize((IMG_SIZE, IMG_SIZE))
 
@@ -60,35 +52,46 @@ def preprocess_image(image):
     return img_array
 
 # ================= ROUTES =================
+
 @app.route("/")
 def home():
-    return "API Running"
+    return jsonify({
+        "status": "API Running",
+        "message": "Autism Detection API"
+    })
 
+# 🔥 HEALTH CHECK (IMPORTANT FOR CRON)
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+# 🔥 MAIN PREDICT API
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
         if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"})
+            return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
+
         image = Image.open(file.stream)
 
         processed = preprocess_image(image)
 
         prediction = model.predict(processed)
 
-        confidence = float(prediction[0][0])  # 0.0 - 1.0
+        confidence = float(prediction[0][0])
 
         label = "Autistic" if confidence > THRESHOLD else "Non_Autistic"
 
         return jsonify({
             "prediction": label,
             "confidence": confidence
-        })
+        }), 200
 
     except Exception as e:
         print("❌ ERROR:", e)
-        return jsonify({"error": str(e)})
+        return jsonify({"error": str(e)}), 500
 
 # ================= ERROR HANDLER =================
 @app.errorhandler(500)
@@ -98,4 +101,4 @@ def internal_error(e):
 # ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)s
