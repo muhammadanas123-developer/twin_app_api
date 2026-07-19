@@ -3,9 +3,15 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageOps
 import os
+import gc
+import gdown
+
+
+# ================= ENV CONFIG =================
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
-import gdown
+
 
 # ================= CONFIG =================
 
@@ -15,16 +21,18 @@ THRESHOLD = 0.5
 FILE_ID = "1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 MODEL_PATH = "autism_model.h5"
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 app = Flask(__name__)
 
 
+
 # ================= DOWNLOAD MODEL =================
 
 def download_model():
+
     if not os.path.exists(MODEL_PATH):
+
         print("📥 Downloading model...")
 
         url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
@@ -38,18 +46,27 @@ def download_model():
         print("✅ Download complete!")
 
 
+
 # ================= LOAD MODEL =================
 
 print("📦 Loading model at startup...")
 
+
 download_model()
+
 
 model = tf.keras.models.load_model(
     MODEL_PATH,
     compile=False
 )
 
+
+# Clear unused memory after model loading
+gc.collect()
+
+
 print("✅ Model loaded successfully!")
+
 
 
 # ================= PREPROCESS =================
@@ -57,11 +74,14 @@ print("✅ Model loaded successfully!")
 from tensorflow.keras.applications.efficientnet import preprocess_input
 
 
+
 def preprocess_image(image):
 
     image = ImageOps.exif_transpose(image)
 
+
     image = image.convert("RGB")
+
 
     image = image.resize(
         (IMG_SIZE, IMG_SIZE)
@@ -72,10 +92,16 @@ def preprocess_image(image):
 
 
     if img_array is None or img_array.size == 0:
-        raise ValueError("Invalid image")
+
+        raise ValueError(
+            "Invalid image"
+        )
 
 
-    img_array = preprocess_input(img_array)
+    img_array = preprocess_input(
+        img_array
+    )
+
 
     img_array = np.expand_dims(
         img_array,
@@ -87,7 +113,8 @@ def preprocess_image(image):
 
 
 
-# ================= ROUTES =================
+
+# ================= HOME ROUTE =================
 
 
 @app.route("/")
@@ -103,13 +130,16 @@ def home():
 
 
 
-# ================= PREDICTION API =================
+
+
+# ================= PREDICT ROUTE =================
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
 
     try:
+
 
         if "file" not in request.files:
 
@@ -124,9 +154,11 @@ def predict():
         file = request.files["file"]
 
 
+
         image = Image.open(
             file.stream
         )
+
 
 
         processed = preprocess_image(
@@ -134,9 +166,11 @@ def predict():
         )
 
 
+
         prediction = model.predict(
             processed
         )
+
 
 
         confidence = float(
@@ -144,11 +178,17 @@ def predict():
         )
 
 
+
         label = (
+
             "Autistic"
+
             if confidence > THRESHOLD
+
             else "Non_Autistic"
+
         )
+
 
 
         return jsonify({
@@ -161,7 +201,9 @@ def predict():
 
 
 
+
     except Exception as e:
+
 
         print("❌ ERROR:", e)
 
@@ -174,10 +216,13 @@ def predict():
 
 
 
+
+
 # ================= RUN =================
 
 
 if __name__ == "__main__":
+
 
     port = int(
         os.environ.get(
@@ -188,6 +233,9 @@ if __name__ == "__main__":
 
 
     app.run(
+
         host="0.0.0.0",
+
         port=port
+
     )
