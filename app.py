@@ -6,7 +6,7 @@ from tensorflow.keras.applications.efficientnet import preprocess_input
 from PIL import Image
 import gdown
 
-# 🔥 FORCE CPU (Render fix)
+# 🔥 FORCE CPU
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 app = Flask(__name__)
@@ -17,49 +17,39 @@ MODEL_URL = "https://drive.google.com/uc?id=1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
 model = None
 
 
-# ✅ DOWNLOAD MODEL IF NOT EXISTS
+# ✅ DOWNLOAD MODEL
 def download_model():
     if not os.path.exists(MODEL_PATH):
-        print("⬇️ Downloading model from Google Drive...")
+        print("⬇️ Downloading model...")
         gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
-        print("✅ Model Downloaded")
 
 
-# ✅ LOAD MODEL (ONLY ONCE)
+# ✅ LOAD MODEL ONCE
 def load_my_model():
     global model
     if model is None:
         download_model()
         print("📦 Loading model...")
         model = load_model(MODEL_PATH, compile=False)
-        print("✅ Model Loaded Successfully")
+        print("✅ Model Loaded")
 
 
-# ✅ HOME ROUTE
 @app.route("/")
 def home():
-    return "✅ Autism Prediction API Running"
+    return "✅ API RUNNING"
 
 
-# ✅ HEALTH CHECK
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok"})
-
-
-# ✅ PREDICTION ROUTE
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
         load_my_model()
 
-        # ✅ CHECK FILE
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
 
-        # ✅ PREPROCESS IMAGE
+        # ✅ PREPROCESS (IMPORTANT SAME AS TRAIN)
         img = Image.open(file).convert("RGB")
         img = img.resize((224, 224))
 
@@ -68,35 +58,33 @@ def predict():
         img = np.expand_dims(img, axis=0)
 
         # ✅ PREDICT
-        pred = model.predict(img, verbose=0)[0][0]
-        pred = float(pred)
+        pred = float(model.predict(img, verbose=0)[0][0])
 
-        print("🔍 RAW PREDICTION:", pred)
+        print("RAW:", pred)
 
-        # 🔥 CORRECT LABEL MAPPING (IMPORTANT)
-        # {'Autistic': 0, 'Non_Autistic': 1}
-        THRESHOLD = 0.5
+        # 🔥 FIXED LOGIC (CONSISTENT)
+        # model output = probability of NON-AUTISTIC
 
-        if pred >= THRESHOLD:
+        if pred >= 0.5:
             label = "Non-Autistic"
             confidence = pred
         else:
             label = "Autistic"
             confidence = 1 - pred
 
-        # ✅ RESPONSE
+        # ✅ ALWAYS RETURN % (0–100)
+        confidence = round(confidence * 100, 2)
+
         return jsonify({
             "prediction": label,
-            "confidence": round(confidence * 100, 2),
-            "raw": pred
+            "confidence": confidence
         })
 
     except Exception as e:
-        print("❌ ERROR:", str(e))
+        print("❌ ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
 
-# ✅ RUN SERVER (Render compatible)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
