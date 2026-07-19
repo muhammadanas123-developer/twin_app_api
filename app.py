@@ -24,7 +24,7 @@ def download_model():
         gdown.download(url, MODEL_PATH, quiet=False)
         print("✅ Download complete!")
 
-# ================= LOAD MODEL (GLOBAL) =================
+# ================= LOAD MODEL =================
 print("📦 Loading model at startup...")
 
 download_model()
@@ -60,12 +60,12 @@ def home():
         "message": "Autism Detection API"
     })
 
-# 🔥 HEALTH CHECK (IMPORTANT FOR CRON)
+# 🔥 HEALTH CHECK (cron ke liye)
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
 
-# 🔥 MAIN PREDICT API
+# 🔥 MAIN API
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
@@ -73,7 +73,6 @@ def predict():
             return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
-
         image = Image.open(file.stream)
 
         processed = preprocess_image(image)
@@ -93,12 +92,7 @@ def predict():
         print("❌ ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
-# ================= ERROR HANDLER =================
-@app.errorhandler(500)
-def internal_error(e):
-    return jsonify({"error": "Internal Server Error"}), 500
-
 # ================= RUN =================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)s
+    app.run(host="0.0.0.0", port=port)
