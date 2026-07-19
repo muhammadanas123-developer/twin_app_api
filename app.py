@@ -4,17 +4,17 @@ import numpy as np
 from PIL import Image, ImageOps
 from mtcnn import MTCNN
 import os
-import requests
+import gdown
 
 from tensorflow.keras.applications import EfficientNetB0
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.applications.efficientnet import preprocess_input
 
-# ================= CONFIG =================
 IMG_SIZE = 224
 THRESHOLD = 0.5
 
+# ✅ YOUR FILE ID
 FILE_ID = "1aN7_TYwhbL0GUYmiD591T1BE2bDNyfjD"
 MODEL_PATH = "best_weights.weights.h5"
 
@@ -22,18 +22,13 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 app = Flask(__name__)
 
-# ================= DOWNLOAD MODEL (FIXED) =================
+# ================= DOWNLOAD MODEL =================
 def download_model():
     if not os.path.exists(MODEL_PATH):
-        print("⬇️ Downloading model...")
-
-        url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
-        response = requests.get(url)
-
-        with open(MODEL_PATH, "wb") as f:
-            f.write(response.content)
-
-        print("✅ Model Downloaded")
+        print("Downloading model from Google Drive...")
+        url = f"https://drive.google.com/uc?id={FILE_ID}"
+        gdown.download(url, MODEL_PATH, quiet=False)
+        print("Download complete!")
 
 # ================= FACE DETECTOR =================
 detector = None
@@ -41,7 +36,6 @@ detector = None
 def get_detector():
     global detector
     if detector is None:
-        print("🔄 Loading MTCNN...")
         detector = MTCNN()
     return detector
 
@@ -61,7 +55,7 @@ def extract_face(image):
         return Image.fromarray(face)
 
     except Exception as e:
-        print("Face error:", e)
+        print("Face detection error:", e)
         return image
 
 # ================= MODEL =================
@@ -70,8 +64,6 @@ model = None
 def load_model():
     global model
     if model is None:
-        print("🔄 Loading model...")
-
         download_model()
 
         base_model = EfficientNetB0(
@@ -91,9 +83,10 @@ def load_model():
         output = Dense(1, activation='sigmoid')(x)
 
         model = Model(inputs=base_model.input, outputs=output)
-        model.load_weights(MODEL_PATH)
 
-        print("✅ Model Loaded")
+        print("Loading weights...")
+        model.load_weights(MODEL_PATH)
+        print("Model loaded!")
 
     return model
 
@@ -114,7 +107,7 @@ def preprocess_image(image):
 # ================= ROUTES =================
 @app.route("/")
 def home():
-    return "API Running"
+    return "API Running Successfully 🚀"
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -130,7 +123,6 @@ def predict():
         model = load_model()
 
         prediction = model.predict(processed)[0][0]
-        print("PREDICTION:", prediction)
 
         label = "Autistic" if prediction > THRESHOLD else "Non_Autistic"
 
@@ -140,10 +132,8 @@ def predict():
         })
 
     except Exception as e:
-        print("ERROR:", str(e))
-        return jsonify({
-            "error": str(e)
-        })
+        print("ERROR:", e)
+        return jsonify({"error": str(e)})
 
 # ================= RUN =================
 if __name__ == "__main__":
