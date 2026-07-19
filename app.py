@@ -28,7 +28,7 @@ def load_model():
         if not os.path.exists(MODEL_PATH):
             print("📥 Downloading model...")
             url = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
-            gdown.download(url, MODEL_PATH, quiet=False, fuzzy=True)
+           gdown.download(url, MODEL_PATH, quiet=False)
             print("✅ Download complete!")
 
         print("📦 Loading model...")
