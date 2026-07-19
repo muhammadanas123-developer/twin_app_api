@@ -3,32 +3,43 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageOps
 import os
+import gdown
 
 # ================= CONFIG =================
 IMG_SIZE = 224
 THRESHOLD = 0.5
+
 MODEL_PATH = "autism_model.h5"
 
+# ✅ TUMHARA FILE ID (SET KAR DIYA)
+FILE_ID = "1WLotK52P5YpeSD-hSjpSHq3KEmA1kBzg"
+
 app = Flask(__name__)
+
+# ================= DOWNLOAD MODEL =================
+if not os.path.exists(MODEL_PATH):
+    print("⬇️ Downloading model...")
+    url = f"https://drive.google.com/uc?id={FILE_ID}"
+    gdown.download(url, MODEL_PATH, quiet=False)
+    print("✅ Download complete!")
 
 # ================= LOAD MODEL =================
 print("📦 Loading model...")
 model = tf.keras.models.load_model(MODEL_PATH, compile=False)
 print("✅ Model loaded!")
 
-# ✅ SAME AS TRAINING
+# ✅ SAME PREPROCESS AS TRAINING
 from tensorflow.keras.applications.efficientnet import preprocess_input
 
 # ================= PREPROCESS =================
 def preprocess_image(image):
-
     image = ImageOps.exif_transpose(image)
     image = image.convert("RGB")
     image = image.resize((IMG_SIZE, IMG_SIZE))
 
     img_array = np.array(image)
 
-    # 🔥 IMPORTANT FIX (MOST CRITICAL)
+    # 🔥 MOST IMPORTANT LINE
     img_array = preprocess_input(img_array)
 
     img_array = np.expand_dims(img_array, axis=0)
@@ -50,18 +61,16 @@ def predict():
             return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
-
         image = Image.open(file.stream)
 
         processed = preprocess_image(image)
 
         prediction = model.predict(processed)
-
         confidence = float(prediction[0][0])
 
         label = "Autistic" if confidence > THRESHOLD else "Non_Autistic"
 
-        print("DEBUG CONFIDENCE:", confidence)
+        print("CONFIDENCE:", confidence)
 
         return jsonify({
             "prediction": label,
@@ -69,7 +78,7 @@ def predict():
         })
 
     except Exception as e:
-        print("❌ ERROR:", e)
+        print("ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
 # ================= RUN =================
